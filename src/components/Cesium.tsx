@@ -46,6 +46,12 @@ const Cesium = () => {
   const [satellitePosition, setSatellitePosition] = useState<
     Cartesian3 | undefined
   >(undefined);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [satelliteData, setSatelliteData] = useState<{
+    latitude: number;
+    longitude: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     const fetchTerrainProvider = async () => {
@@ -124,6 +130,8 @@ const Cesium = () => {
           height
         );
         setSatellitePosition(positionCart); // 衛星位置を更新
+        setSatelliteData({latitude, longitude, height});
+        setCurrentTime(now);
         updateOrbit(); // 軌道の再計算を呼び出す
       }
     }, 1000); // 1秒ごとに更新
@@ -133,8 +141,12 @@ const Cesium = () => {
 
   const visibilityRadius = 2000 * 1000; // 見える範囲の半径を設定（メートル）
 
+  const formatTime = (date: Date) => {
+    return date.toISOString().split("T")[1].split(".")[0];
+  };
+
   return (
-    <div style={{height: "100vh"}}>
+    <div style={{height: "100vh", position: "relative"}}>
       {terrainProvider ? (
         <Viewer
           full
@@ -212,6 +224,31 @@ const Cesium = () => {
       ) : (
         <div>Loading...</div>
       )}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          padding: "10px",
+          backgroundColor: "rgba(0,0,0,0.5)",
+          color: "white",
+        }}
+      >
+        <div>UTC: {formatTime(currentTime)} UTC</div>
+        <div>
+          JST:{" "}
+          {formatTime(new Date(currentTime.getTime() + 9 * 60 * 60 * 1000))} JST
+        </div>
+        {satelliteData && (
+          <>
+            <div>KASHIWA</div>
+            <div>NORAD ID: 59508</div>
+            <div>Latitude: {satelliteData.latitude.toFixed(2)}°</div>
+            <div>Longitude: {satelliteData.longitude.toFixed(2)}°</div>
+            <div>Altitude: {(satelliteData.height / 1000).toFixed(2)} km</div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
