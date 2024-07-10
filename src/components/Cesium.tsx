@@ -10,173 +10,78 @@ import {
 import {
   Ion,
   Cartesian3,
-  createWorldTerrainAsync,
   CesiumTerrainProvider,
   Color,
   PolylineDashMaterialProperty,
   HeightReference,
 } from "cesium";
-import * as satellite from "satellite.js";
+
+import {fetchTLEData} from "../utils/norad";
+import {camera_ground_station} from "../utils/params";
+import {fetchTerrainProvider} from "../utils/cesiumUtil";
+import {formatTime} from "../utils/time";
+import {calculateOrbit} from "../utils/satelliteOrbit";
 
 const NORAD_ID = "59508";
-
-const fetchTLE = async (noradId: string) => {
-  const response = await fetch(
-    `https://celestrak.com/NORAD/elements/gp.php?CATNR=${noradId}&FORMAT=TLE`
-  );
-  const tleData = await response.text();
-  const tleLines = tleData.split("\n").filter((line) => line.trim().length > 0);
-
-  console.log(tleLines);
-  return tleLines;
-};
 
 const cesiumToken = process.env.NEXT_PUBLIC_CESIUM_ION_DEFAULT_ACCESS_TOKEN;
 Ion.defaultAccessToken = cesiumToken || "YOUR_DEFAULT_TOKEN_HERE";
 
 const Cesium = () => {
-  const camera_position = Cartesian3.fromDegrees(
-    140.0219295,
-    35.6887391,
-    20000000
-  );
-  const camera_ground_station = Cartesian3.fromDegrees(
-    140.0219295,
-    35.6887391,
-    100
-  );
-
-  const [terrainProvider, setTerrainProvider] = useState<
-    CesiumTerrainProvider | undefined
-  >(undefined);
+  const [terrainProvider, setTerrainProvider] =
+    useState<CesiumTerrainProvider>();
   const [pastPositions, setPastPositions] = useState<Cartesian3[]>([]);
   const [futurePositions, setFuturePositions] = useState<Cartesian3[]>([]);
-  const [satellitePosition, setSatellitePosition] = useState<
-    Cartesian3 | undefined
-  >(undefined);
+  const [satellitePosition, setSatellitePosition] = useState<Cartesian3>();
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [satelliteData, setSatelliteData] = useState<{
     latitude: number;
     longitude: number;
     height: number;
-  } | null>(null);
+  }>();
+
+  // TLEデータ
   const [tleData, setTleData] = useState<string[]>([]);
   const [tleFetchTime, setTleFetchTime] = useState<Date | null>(null);
   const [tleLastNumber, setTleLastNumber] = useState<number>(0);
 
+  // 初回実行
   useEffect(() => {
-    const fetchTLEData = async () => {
-      const tleLines = await fetchTLE(NORAD_ID);
-      const tleLastNumber = parseInt(tleLines[2].split(" ")[10]);
+    fetchTLEData(NORAD_ID, setTleLastNumber, setTleData, setTleFetchTime);
+    fetchTerrainProvider(setTerrainProvider);
 
-      if (tleLastNumber) {
-        tleLines[2] = tleLines[2].replace(/\r?\n/g, "");
-      }
+    // TLEデータを取得するインターバル
+    const tleInterval = setInterval(fetchTLEData, 180 * 60 * 1000);
 
-      setTleLastNumber(tleLastNumber);
-      setTleData(tleLines);
-      setTleFetchTime(new Date());
-    };
-
-    const fetchTerrainProvider = async () => {
-      const terrain = await createWorldTerrainAsync();
-      setTerrainProvider(terrain);
-    };
-
-    fetchTLEData();
-    fetchTerrainProvider();
-
-    const tleInterval = setInterval(fetchTLEData, 180 * 60 * 1000); // 180分ごとにTLEを更新
-
-    return () => clearInterval(tleInterval); // コンポーネントがアンマウントされたらタイマーをクリア
+    return () => clearInterval(tleInterval);
   }, []);
 
   useEffect(() => {
     if (tleData.length === 0) return;
 
-    const calculateOrbit = () => {
-      const satrec = satellite.twoline2satrec(tleData[1], tleData[2]);
-      const now = new Date();
-
-      const newPastPositions: Cartesian3[] = [];
-      const newFuturePositions: Cartesian3[] = [];
-      for (let i = -90; i <= 180; i += 0.1) {
-        const time = new Date(now.getTime() + i * 60000); // 時間を1分ごとに進める
-        const positionAndVelocity = satellite.propagate(satrec, time);
-
-        if (
-          positionAndVelocity &&
-          typeof positionAndVelocity.position !== "boolean"
-        ) {
-          const positionEci = positionAndVelocity.position;
-          const gmst = satellite.gstime(time);
-          const positionGd = satellite.eciToGeodetic(positionEci, gmst);
-
-          const longitude = satellite.degreesLong(positionGd.longitude);
-          const latitude = satellite.degreesLat(positionGd.latitude);
-          const height = positionGd.height * 1000;
-
-          const positionCart = Cartesian3.fromDegrees(
-            longitude,
-            latitude,
-            height
-          );
-          if (i < 0) {
-            newPastPositions.push(positionCart);
-          } else {
-            newFuturePositions.push(positionCart);
-          }
-        }
-      }
-      return {newPastPositions, newFuturePositions};
-    };
-
     const updateOrbit = () => {
-      const {newPastPositions, newFuturePositions} = calculateOrbit();
+      const {newPastPositions, newFuturePositions} = calculateOrbit(
+        tleData,
+        setSatelliteData,
+        setCurrentTime
+      );
       setPastPositions(newPastPositions);
       setFuturePositions(newFuturePositions);
       setSatellitePosition(newFuturePositions[0]);
     };
 
+    // 初回実行
     updateOrbit();
 
+    // 衛星の位置を更新するインターバル
     const interval = setInterval(() => {
-      const satrec = satellite.twoline2satrec(tleData[1], tleData[2]);
-      const now = new Date();
-      const positionAndVelocity = satellite.propagate(satrec, now);
-
-      if (
-        positionAndVelocity &&
-        typeof positionAndVelocity.position !== "boolean"
-      ) {
-        const positionEci = positionAndVelocity.position;
-        const gmst = satellite.gstime(now);
-        const positionGd = satellite.eciToGeodetic(positionEci, gmst);
-
-        const longitude = satellite.degreesLong(positionGd.longitude);
-        const latitude = satellite.degreesLat(positionGd.latitude);
-        const height = positionGd.height * 1000;
-
-        const positionCart = Cartesian3.fromDegrees(
-          longitude,
-          latitude,
-          height
-        );
-        setSatellitePosition(positionCart); // 衛星位置を更新
-        setSatelliteData({latitude, longitude, height});
-        setCurrentTime(now);
-        updateOrbit(); // 軌道の再計算を呼び出す
-      }
-    }, 1000); // 1秒ごとに更新
+      updateOrbit();
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [tleData]);
 
   const visibilityRadius = 2000 * 1000;
-
-  const formatTime = (date: Date) => {
-    return date.toISOString().split("T")[1].split(".")[0];
-  };
 
   return (
     <div style={{height: "100vh", position: "relative"}}>
@@ -275,7 +180,7 @@ const Cesium = () => {
         {satelliteData && (
           <>
             <div>KASHIWA</div>
-            <div>NORAD ID: 59508</div>
+            <div>NORAD ID: {NORAD_ID}</div>
             <div>Latitude: {satelliteData.latitude.toFixed(2)}°</div>
             <div>Longitude: {satelliteData.longitude.toFixed(2)}°</div>
             <div>Altitude: {(satelliteData.height / 1000).toFixed(2)} km</div>
