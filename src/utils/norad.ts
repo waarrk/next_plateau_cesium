@@ -13,7 +13,8 @@ export const fetchTLEData = async (
   norad_id: string,
   setTleLastNumber: React.Dispatch<React.SetStateAction<number>>,
   setTleData: React.Dispatch<React.SetStateAction<string[]>>,
-  setTleFetchTime: React.Dispatch<React.SetStateAction<Date | null>>
+  setTleFetchTime: React.Dispatch<React.SetStateAction<Date | null>>,
+  setSatelliteName: React.Dispatch<React.SetStateAction<string>>
 ) => {
   const tleLines = await fetchTLE(norad_id);
   const tleLastNumber = parseInt(tleLines[2].split(" ")[10]);
@@ -22,6 +23,7 @@ export const fetchTLEData = async (
     tleLines[2] = tleLines[2].replace(/\r?\n/g, "");
   }
 
+  setSatelliteName(tleLines[0]);
   setTleLastNumber(tleLastNumber);
   setTleData(tleLines);
   setTleFetchTime(new Date());

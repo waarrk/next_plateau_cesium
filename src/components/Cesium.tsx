@@ -41,13 +41,20 @@ const Cesium = () => {
   }>();
 
   // TLEデータ
+  const [satelliteName, setSatelliteName] = useState<string>("");
   const [tleData, setTleData] = useState<string[]>([]);
   const [tleFetchTime, setTleFetchTime] = useState<Date | null>(null);
   const [tleLastNumber, setTleLastNumber] = useState<number>(0);
 
   // 初回実行
   useEffect(() => {
-    fetchTLEData(NORAD_ID, setTleLastNumber, setTleData, setTleFetchTime);
+    fetchTLEData(
+      NORAD_ID,
+      setTleLastNumber,
+      setTleData,
+      setTleFetchTime,
+      setSatelliteName
+    );
     fetchTerrainProvider(setTerrainProvider);
 
     // TLEデータを取得するインターバル
@@ -148,11 +155,11 @@ const Cesium = () => {
 
           {satellitePosition && (
             <Entity
-              name="Satellite"
+              name={satelliteName}
               position={satellitePosition}
               point={{pixelSize: 5}}
               label={{
-                text: "KASHIWA",
+                text: satelliteName,
                 font: "14px sans-serif",
                 pixelOffset: new Cartesian3(0, 20),
               }}
@@ -179,7 +186,7 @@ const Cesium = () => {
         </div>
         {satelliteData && (
           <>
-            <div>KASHIWA</div>
+            <div>Satellite: {satelliteName}</div>
             <div>NORAD ID: {NORAD_ID}</div>
             <div>Latitude: {satelliteData.latitude.toFixed(2)}°</div>
             <div>Longitude: {satelliteData.longitude.toFixed(2)}°</div>
