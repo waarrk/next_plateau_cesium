@@ -14,13 +14,20 @@ import {
   Color,
   PolylineDashMaterialProperty,
   HeightReference,
+  Ellipsoid,
 } from "cesium";
 
 import {fetchTLEData} from "../utils/norad";
-import {camera_ground_station} from "../utils/params";
+import {
+  camera_ground_station,
+  camera_ground_station_degree,
+} from "../utils/params";
 import {fetchTerrainProvider} from "../utils/cesiumUtil";
 import {formatTime} from "../utils/time";
-import {calculateOrbit} from "../utils/satelliteOrbit";
+import {
+  calculateOrbit,
+  calculateVisibilityRadius,
+} from "../utils/satelliteOrbit";
 
 const NORAD_ID = "59508";
 
@@ -40,13 +47,16 @@ const Cesium = () => {
     height: number;
   }>();
 
-  // TLEデータ
+  // TLE data
   const [satelliteName, setSatelliteName] = useState<string>("");
   const [tleData, setTleData] = useState<string[]>([]);
   const [tleFetchTime, setTleFetchTime] = useState<Date | null>(null);
-  const [tleLastNumber, setTleLastNumber] = useState<number>(0);
+  const [tleLastNumber, setTleLastNumber] = useState(0);
+  const [visibilityTimes, setVisibilityTimes] = useState<{
+    enter: Date | null;
+    exit: Date | null;
+  }>({enter: null, exit: null});
 
-  // 初回実行
   useEffect(() => {
     fetchTLEData(
       NORAD_ID,
@@ -57,8 +67,17 @@ const Cesium = () => {
     );
     fetchTerrainProvider(setTerrainProvider);
 
-    // TLEデータを取得するインターバル
-    const tleInterval = setInterval(fetchTLEData, 180 * 60 * 1000);
+    const tleInterval = setInterval(
+      () =>
+        fetchTLEData(
+          NORAD_ID,
+          setTleLastNumber,
+          setTleData,
+          setTleFetchTime,
+          setSatelliteName
+        ),
+      180 * 60 * 1000
+    );
 
     return () => clearInterval(tleInterval);
   }, []);
@@ -67,20 +86,16 @@ const Cesium = () => {
     if (tleData.length === 0) return;
 
     const updateOrbit = () => {
-      const {newPastPositions, newFuturePositions} = calculateOrbit(
-        tleData,
-        setSatelliteData,
-        setCurrentTime
-      );
+      const {newPastPositions, newFuturePositions, visibilityTimes} =
+        calculateOrbit(tleData, setSatelliteData, setCurrentTime);
       setPastPositions(newPastPositions);
       setFuturePositions(newFuturePositions);
       setSatellitePosition(newFuturePositions[0]);
+      setVisibilityTimes(visibilityTimes);
     };
 
-    // 初回実行
     updateOrbit();
 
-    // 衛星の位置を更新するインターバル
     const interval = setInterval(() => {
       updateOrbit();
     }, 1000);
@@ -88,7 +103,18 @@ const Cesium = () => {
     return () => clearInterval(interval);
   }, [tleData]);
 
-  const visibilityRadius = 2000 * 1000;
+  const visibilityRadius = satelliteData
+    ? calculateVisibilityRadius(satelliteData.height)
+    : 2000 * 1000;
+
+  const isSatelliteInRange = () => {
+    if (!satellitePosition) return false;
+    const distance = Cartesian3.distance(
+      camera_ground_station,
+      satellitePosition
+    );
+    return distance <= visibilityRadius;
+  };
 
   return (
     <div style={{height: "100vh", position: "relative"}}>
@@ -99,7 +125,6 @@ const Cesium = () => {
           timeline={false}
           homeButton={false}
           geocoder={false}
-          sceneModePicker={false}
           navigationHelpButton={false}
           fullscreenButton={false}
           baseLayerPicker={false}
@@ -154,16 +179,27 @@ const Cesium = () => {
           )}
 
           {satellitePosition && (
-            <Entity
-              name={satelliteName}
-              position={satellitePosition}
-              point={{pixelSize: 5}}
-              label={{
-                text: satelliteName,
-                font: "14px sans-serif",
-                pixelOffset: new Cartesian3(0, 20),
-              }}
-            />
+            <>
+              <Entity
+                name={satelliteName}
+                position={satellitePosition}
+                point={{pixelSize: 5}}
+                label={{
+                  text: satelliteName,
+                  font: "14px sans-serif",
+                  pixelOffset: new Cartesian3(0, 20),
+                }}
+              />
+              {isSatelliteInRange() && (
+                <Entity>
+                  <PolylineGraphics
+                    positions={[camera_ground_station, satellitePosition]}
+                    width={1}
+                    material={Color.YELLOW}
+                  />
+                </Entity>
+              )}
+            </>
           )}
         </Viewer>
       ) : (
@@ -200,7 +236,33 @@ const Cesium = () => {
             JST
           </div>
         )}
-        {tleData.length > 0 && <div>TLE:{tleLastNumber}</div>}
+        {tleData.length > 0 && <div>TLE: {tleLastNumber}</div>}
+        {visibilityTimes.enter && visibilityTimes.exit && (
+          <>
+            <div>
+              Enter Visibility:{" "}
+              {formatTime(
+                new Date(visibilityTimes.enter.getTime() + 9 * 60 * 60 * 1000)
+              )}{" "}
+              JST
+            </div>
+            <div>
+              Remaining Time:
+              {formatTime(
+                new Date(
+                  visibilityTimes.enter.getTime() - currentTime.getTime()
+                )
+              )}
+            </div>
+            <div>
+              Exit Visibility:{" "}
+              {formatTime(
+                new Date(visibilityTimes.exit.getTime() + 9 * 60 * 60 * 1000)
+              )}{" "}
+              JST
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
