@@ -198,16 +198,18 @@ const Cesium = () => {
           Loading...
         </div>
       )}
-      <InfoBox
-        NORAD_ID={Number(NORAD_ID)}
-        currentTime={satelliteState.currentTime}
-        satelliteData={satelliteState.satelliteData}
-        satelliteName={satelliteState.satelliteName}
-        tleFetchTime={satelliteState.tleFetchTime}
-        tleLastNumber={satelliteState.tleLastNumber}
-        tleData={satelliteState.tleData}
-        visibilityTimes={satelliteState.visibilityTimes}
-      />
+      <div className="flex flex-col space-y-4 absolute top-0 left-0 p-4">
+        <InfoBox
+          NORAD_ID={Number(NORAD_ID)}
+          currentTime={satelliteState.currentTime}
+          satelliteData={satelliteState.satelliteData}
+          satelliteName={satelliteState.satelliteName}
+          tleFetchTime={satelliteState.tleFetchTime}
+          tleLastNumber={satelliteState.tleLastNumber}
+          tleData={satelliteState.tleData}
+          visibilityTimes={satelliteState.visibilityTimes}
+        />
+      </div>
     </div>
   );
 };
