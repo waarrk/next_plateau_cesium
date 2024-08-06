@@ -5,6 +5,11 @@ export const fetchTerrainProvider = async (
     React.SetStateAction<CesiumTerrainProvider | undefined>
   >
 ) => {
-  const terrain = await createWorldTerrainAsync();
-  setTerrainProvider(terrain);
+  try {
+    const provider = await createWorldTerrainAsync();
+    setTerrainProvider(provider);
+  } catch (error) {
+    console.error("Failed to fetch terrain provider", error);
+    setTerrainProvider(undefined);
+  }
 };
