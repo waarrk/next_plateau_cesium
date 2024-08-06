@@ -25,7 +25,7 @@ export const fetchTLEData = async (
   }
 
   try {
-    const tleLastNumberStr = tleLines[1].split(" ")[1];
+    const tleLastNumberStr = tleLines[1].substring(64, 68).trim();
     const tleLastNumber = parseInt(tleLastNumberStr, 10);
 
     if (isNaN(tleLastNumber)) {
