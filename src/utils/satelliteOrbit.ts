@@ -11,12 +11,8 @@ export const calculateVisibilityRadius = (satelliteHeight: number): number => {
 
 export const calculateOrbit = (
   tleData: string[],
-  setSatelliteData: React.Dispatch<
-    React.SetStateAction<
-      {latitude: number; longitude: number; height: number} | undefined
-    >
-  >,
-  setCurrentTime: React.Dispatch<React.SetStateAction<Date>>
+  setSatelliteData: any,
+  setCurrentTime: any
 ): {
   newPastPositions: Cartesian3[];
   newFuturePositions: Cartesian3[];

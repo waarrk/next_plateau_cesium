@@ -9,22 +9,34 @@ const fetchTLE = async (noradId: string) => {
   return tleLines;
 };
 
+// Fetch TLE Data function
 export const fetchTLEData = async (
   norad_id: string,
-  setTleLastNumber: React.Dispatch<React.SetStateAction<number>>,
-  setTleData: React.Dispatch<React.SetStateAction<string[]>>,
-  setTleFetchTime: React.Dispatch<React.SetStateAction<Date | null>>,
-  setSatelliteName: React.Dispatch<React.SetStateAction<string>>
+  setTleLastNumber: any,
+  setTleData: any,
+  setTleFetchTime: any,
+  setSatelliteName: any
 ) => {
   const tleLines = await fetchTLE(norad_id);
-  const tleLastNumber = parseInt(tleLines[2].split(" ")[10]);
 
-  if (tleLastNumber) {
-    tleLines[2] = tleLines[2].replace(/\r?\n/g, "");
+  if (tleLines.length < 3) {
+    console.error("Invalid TLE data");
+    return;
   }
 
-  setSatelliteName(tleLines[0]);
-  setTleLastNumber(tleLastNumber);
-  setTleData(tleLines);
-  setTleFetchTime(new Date());
+  try {
+    const tleLastNumberStr = tleLines[1].split(" ")[1];
+    const tleLastNumber = parseInt(tleLastNumberStr, 10);
+
+    if (isNaN(tleLastNumber)) {
+      throw new Error("TLE last number is NaN");
+    }
+
+    setSatelliteName(tleLines[0].trim());
+    setTleLastNumber(tleLastNumber);
+    setTleData(tleLines.filter((line) => line.trim().length > 0));
+    setTleFetchTime(new Date());
+  } catch (error) {
+    console.error("Error parsing TLE data:", error);
+  }
 };
