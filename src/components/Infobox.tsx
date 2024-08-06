@@ -23,11 +23,10 @@ const InfoBox = ({
   visibilityTimes: VisibilityTimes;
 }) => {
   return (
-    <div className="absolute top-0 left-0 p-3 bg-black bg-opacity-50 text-white">
-      <div>UTC: {formatTime(currentTime)} UTC</div>
+    <div className="p-3 bg-black bg-opacity-50 text-white rounded-lg">
+      <div>UTC: {formatTime(currentTime)}</div>
       <div>
         JST: {formatTime(new Date(currentTime.getTime() + 9 * 60 * 60 * 1000))}{" "}
-        JST
       </div>
       {satelliteData && (
         <>
@@ -56,7 +55,7 @@ const InfoBox = ({
             JST
           </div>
           <div>
-            Remaining Time:
+            Remaining Time:{" "}
             {formatTime(
               new Date(visibilityTimes.enter.getTime() - currentTime.getTime())
             )}
